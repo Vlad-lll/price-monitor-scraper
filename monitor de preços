@@ -1,0 +1,71 @@
+# ==============================================================================
+# PROJETO: Web Scraper de Preços (Foco em e-commerces com proteção antibot)
+# DESCRIÇÃO: Este script acessa a página de um produto, passa por verificações 
+# de segurança (como Cloudflare) e extrai o valor atualizado do item, limpando
+# a formatação de texto para converter o preço em um número decimal (float).
+# ==============================================================================
+
+# Importando as bibliotecas necessárias
+import cloudscraper # Biblioteca especial para contornar bloqueios antibot de sites.
+from bs4 import BeautifulSoup # Biblioteca que transforma o HTML do site em uma estrutura que o Python consegue ler e pesquisar.
+
+def buscar_preco_kabum():
+    # URL do produto que será monitorado
+    url = 'https://www.kabum.com.br/produto/486194/microfone-de-mesa-fifine-a6v-ampligame-com-suporte-condensador-rgb-usb-preto-a6v'
+    
+    # Criando uma instância do scraper simulando um navegador real.
+    # Isso engana o sistema de segurança do site, fazendo-o pensar que somos um usuário comum no Chrome via Windows.
+    scraper = cloudscraper.create_scraper(browser={
+        'browser': 'chrome',
+        'platform': 'windows',
+        'desktop': True
+    })
+    
+    # Bloco 'try' para garantir que o script não quebre o programa inteiro caso o site caia ou mude.
+    try:
+        print("Acessando a loja e contornando a segurança...")
+        
+        # O scraper acessa a URL e guarda toda a resposta (o código-fonte da página)
+        resposta = scraper.get(url)
+        
+        # O BeautifulSoup pega o texto da resposta e o organiza como um documento HTML 'pesquisável'
+        site = BeautifulSoup(resposta.text, 'html.parser')
+
+        # Buscando a tag HTML exata onde o preço está escondido.
+        # Aqui procuramos por um <h4> que contenha as classes específicas de estilo do preço no site.
+        elemento_preco = site.find('h4', class_='text-4xl text-secondary-500')
+        
+        # Verificando se o elemento realmente foi encontrado na página
+        if elemento_preco:
+            # Pega apenas o texto dentro da tag HTML e remove espaços em branco nas pontas (strip)
+            preco_bruto = elemento_preco.text.strip()
+            
+            # --- ETAPA DE LIMPEZA E TRATAMENTO DE DADOS ---
+            # O texto vem sujo (ex: "R$&nbsp;149,90"). Precisamos remover letras e caracteres especiais.
+            preco_limpo = preco_bruto.replace('R$', '')       # Remove o símbolo da moeda
+            preco_limpo = preco_limpo.replace('&nbsp;', '')   # Remove o código de espaço em branco do HTML
+            preco_limpo = preco_limpo.replace('\xa0', '')     # Remove espaços invisíveis que o Python detecta
+            
+            # Ajustando a pontuação para o padrão numérico do Python (que é o americano)
+            preco_limpo = preco_limpo.replace('.', '')        # Remove os pontos de milhar (se o produto custar mais de mil reais)
+            preco_limpo = preco_limpo.replace(',', '.')       # Troca a vírgula dos centavos por um ponto
+            
+            # Converte o texto final, já totalmente limpo, em um número decimal (Float) para futuras operações matemáticas
+            preco_numero = float(preco_limpo)
+
+            # Imprimindo os resultados no terminal
+            print("\n=== Alerta de Preço ===")
+            print(f"Texto original extraído: {preco_bruto}")
+            print(f"Valor convertido em Float: {preco_numero}")
+            print("=======================\n")
+        else:
+            # Caso o site tenha mudado seu layout HTML, o elemento não será encontrado.
+            print("\nErro: A página carregou, mas a tag do preço não foi encontrada. Verifique se o HTML do site mudou.")
+
+    # Se a internet cair ou o site recusar a conexão, o erro é capturado aqui.
+    except Exception as e:
+        print(f"\nErro crítico durante a execução: {e}")
+
+# Ponto de entrada do script: garante que a função só rode se o arquivo for executado diretamente
+if __name__ == '__main__':
+    buscar_preco_()
